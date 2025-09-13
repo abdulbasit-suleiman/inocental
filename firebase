@@ -5,14 +5,13 @@ import { getStorage } from "firebase/storage";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyDMHAIEqySCCs-yWyo31Byc7zjUhcJA9ts",
-  authDomain: "authproject-5486a.firebaseapp.com",
-  projectId: "authproject-5486a",
-  storageBucket: "authproject-5486a.firebasestorage.app",
-  messagingSenderId: "412947129715",
-  appId: "1:412947129715:web:eb2addb7be225239345106"
+  apiKey: "AIzaSyDoJBcJsI9FJ9zh2FFBrmnMsSZBn4Lpiak",
+  authDomain: "studentattendance-29930.firebaseapp.com",
+  projectId: "studentattendance-29930",
+  storageBucket: "studentattendance-29930.firebasestorage.app",
+  messagingSenderId: "442980804746",
+  appId: "1:442980804746:web:e2d5cf1b3b541c3cf12573"
 };
-
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 

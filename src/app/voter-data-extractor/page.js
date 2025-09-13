@@ -49,6 +49,7 @@ function VoterDataExtractorContent() {
         }
       } catch (error) {
         console.error('Error checking sheet:', error);
+        // If there's an error fetching, still create a new template
         const template = createExcelTemplate();
         setExcelData(template);
       }
@@ -135,7 +136,7 @@ function VoterDataExtractorContent() {
       alert('Excel sheet saved to Firebase successfully!');
     } catch (error) {
       console.error('Error saving to Firebase:', error);
-      alert('Failed to save Excel sheet to Firebase');
+      alert('Failed to save Excel sheet to Firebase: ' + error.message);
     }
   };
 

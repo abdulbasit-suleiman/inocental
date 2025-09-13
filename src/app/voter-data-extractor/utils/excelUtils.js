@@ -58,7 +58,13 @@ export async function saveExcelToFirebase(data, sheetName, userId) {
     
     // Upload to Firebase Storage
     const storageRef = ref(storage, `excel-sheets/${userId}/${sheetName}.xlsx`);
-    await uploadString(storageRef, wbout, 'base64');
+    
+    // Upload with proper metadata
+    const metadata = {
+      contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    };
+    
+    await uploadString(storageRef, wbout, 'base64', metadata);
     
     // Get download URL
     const downloadURL = await getDownloadURL(storageRef);
@@ -94,7 +100,14 @@ export async function saveExcelToFirebase(data, sheetName, userId) {
     }
   } catch (error) {
     console.error('Error saving Excel to Firebase:', error);
-    throw new Error('Failed to save Excel sheet to Firebase');
+    // More specific error handling
+    if (error.code === 'storage/unauthorized') {
+      throw new Error('Unauthorized access to Firebase Storage. Please check your Firebase rules.');
+    } else if (error.code === 'storage/canceled') {
+      throw new Error('Upload was canceled.');
+    } else {
+      throw new Error('Failed to save Excel sheet to Firebase: ' + error.message);
+    }
   }
 }
 
@@ -121,7 +134,7 @@ export async function fetchExcelFromFirebase(sheetName, userId) {
     return null;
   } catch (error) {
     console.error('Error fetching Excel from Firebase:', error);
-    throw new Error('Failed to fetch Excel sheet from Firebase');
+    throw new Error('Failed to fetch Excel sheet from Firebase: ' + error.message);
   }
 }
 
@@ -141,6 +154,6 @@ export async function fetchAllExcelSheetsForAdmin() {
     return sheets;
   } catch (error) {
     console.error('Error fetching all Excel sheets:', error);
-    throw new Error('Failed to fetch all Excel sheets');
+    throw new Error('Failed to fetch all Excel sheets: ' + error.message);
   }
 }

@@ -8,6 +8,7 @@ export default function AdminDashboard() {
   const [inputValue, setInputValue] = useState('');
   const [sheets, setSheets] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleAccess = () => {
     if (inputValue === 'Admin001') {
@@ -20,12 +21,13 @@ export default function AdminDashboard() {
 
   const fetchSheets = async () => {
     setLoading(true);
+    setError('');
     try {
       const allSheets = await fetchAllExcelSheetsForAdmin();
       setSheets(allSheets);
     } catch (error) {
       console.error('Error fetching sheets:', error);
-      alert('Failed to fetch Excel sheets');
+      setError('Failed to fetch Excel sheets: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -135,6 +137,18 @@ export default function AdminDashboard() {
         </button>
       </div>
 
+      {error && (
+        <div style={{
+          backgroundColor: '#ffebee',
+          color: '#c62828',
+          padding: '15px',
+          borderRadius: '4px',
+          marginBottom: '20px'
+        }}>
+          {error}
+        </div>
+      )}
+
       {sheets.length === 0 ? (
         <div style={{ 
           textAlign: 'center', 
@@ -167,10 +181,10 @@ export default function AdminDashboard() {
                 <strong>User ID:</strong> {sheet.userId}
               </p>
               <p style={{ marginBottom: '8px', color: 'var(--text-muted)' }}>
-                <strong>Created:</strong> {new Date(sheet.createdAt?.seconds * 1000).toLocaleString()}
+                <strong>Created:</strong> {sheet.createdAt ? new Date(sheet.createdAt.seconds * 1000).toLocaleString() : 'N/A'}
               </p>
               <p style={{ marginBottom: '15px', color: 'var(--text-muted)' }}>
-                <strong>Updated:</strong> {new Date(sheet.updatedAt?.seconds * 1000).toLocaleString()}
+                <strong>Updated:</strong> {sheet.updatedAt ? new Date(sheet.updatedAt.seconds * 1000).toLocaleString() : 'N/A'}
               </p>
               <a
                 href={sheet.downloadURL}
