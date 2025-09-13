@@ -56,16 +56,16 @@ export default function CameraCapture({ onCapture }) {
   };
 
   return (
-    <div style={{ textAlign: 'center', padding: '20px', border: '2px dashed #ccc', borderRadius: '10px' }}>
+    <div style={{ textAlign: 'center', padding: '20px', border: '2px dashed var(--border-color)', borderRadius: '10px', backgroundColor: 'var(--card-background)' }}>
       {!stream ? (
         <div style={{ padding: '40px 20px' }}>
-          <p style={{ fontSize: '18px', marginBottom: '20px' }}>Click the button below to start the camera and capture a voter form</p>
+          <p style={{ fontSize: '18px', marginBottom: '20px', color: 'var(--foreground)' }}>Click the button below to start the camera and capture a voter form</p>
           <button 
             onClick={startCamera}
             style={{
               padding: '15px 30px',
               fontSize: '18px',
-              backgroundColor: '#2196F3',
+              backgroundColor: 'var(--button-primary)',
               color: 'white',
               border: 'none',
               borderRadius: '4px',
@@ -85,13 +85,12 @@ export default function CameraCapture({ onCapture }) {
             style={{ width: '100%', maxHeight: '70vh', borderRadius: '8px' }}
           />
           <canvas ref={canvasRef} style={{ display: 'none' }} />
-          <div style={{ margin: '20px 0' }}>
+          <div style={{ margin: '20px 0', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '10px' }}>
             <button 
               onClick={switchCamera}
               style={{
                 padding: '12px 20px',
-                margin: '0 10px',
-                backgroundColor: '#FF9800',
+                backgroundColor: 'var(--button-warning)',
                 color: 'white',
                 border: 'none',
                 borderRadius: '4px',
@@ -105,8 +104,7 @@ export default function CameraCapture({ onCapture }) {
               onClick={captureImage}
               style={{
                 padding: '12px 20px',
-                margin: '0 10px',
-                backgroundColor: '#4CAF50',
+                backgroundColor: 'var(--button-success)',
                 color: 'white',
                 border: 'none',
                 borderRadius: '4px',
@@ -120,8 +118,7 @@ export default function CameraCapture({ onCapture }) {
               onClick={stopCamera}
               style={{
                 padding: '12px 20px',
-                margin: '0 10px',
-                backgroundColor: '#f44336',
+                backgroundColor: 'var(--button-danger)',
                 color: 'white',
                 border: 'none',
                 borderRadius: '4px',

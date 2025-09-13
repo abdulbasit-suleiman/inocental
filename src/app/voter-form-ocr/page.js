@@ -1,5 +1,6 @@
 'use client';
 
+import Image from "next/image";
 import { useState, useRef } from 'react';
 import dynamic from 'next/dynamic';
 
@@ -74,7 +75,15 @@ export default function VoterFormOCR() {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '30px', marginTop: '20px' }}>
           <div style={{ flex: '1', minWidth: '300px' }}>
             <h2>Captured Image</h2>
-            <img src={capturedImage} alt="Captured voter form" style={{ maxWidth: '100%', height: 'auto' }} />
+            <div style={{ maxWidth: '100%', height: 'auto', overflow: 'hidden' }}>
+              <Image 
+                src={capturedImage} 
+                alt="Captured voter form" 
+                width={500} 
+                height={300} 
+                style={{ maxWidth: '100%', height: 'auto' }} 
+              />
+            </div>
             <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
               <button 
                 onClick={() => setCapturedImage(null)}

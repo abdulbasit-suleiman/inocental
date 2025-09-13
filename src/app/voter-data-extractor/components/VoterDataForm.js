@@ -6,18 +6,18 @@ export default function VoterDataForm({ data, onChange }) {
   };
 
   return (
-    <div style={{ backgroundColor: '#f9f9f9', padding: '25px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+    <div style={{ backgroundColor: 'var(--card-background)', padding: '25px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
       <h3>Enter Voter Information</h3>
       <p>Fill in the details below:</p>
       
       <div style={{ 
         display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', 
+        gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', 
         gap: '20px', 
         marginTop: '20px' 
       }}>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <label style={{ fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>
+          <label style={{ fontWeight: 'bold', marginBottom: '8px', color: 'var(--foreground)' }}>
             Surname *
           </label>
           <input
@@ -27,15 +27,17 @@ export default function VoterDataForm({ data, onChange }) {
             placeholder="Enter surname"
             style={{
               padding: '12px',
-              border: '1px solid #ddd',
+              border: '1px solid var(--border-color)',
               borderRadius: '4px',
-              fontSize: '16px'
+              fontSize: '16px',
+              backgroundColor: 'var(--background)',
+              color: 'var(--foreground)'
             }}
           />
         </div>
         
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <label style={{ fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>
+          <label style={{ fontWeight: 'bold', marginBottom: '8px', color: 'var(--foreground)' }}>
             Middle Name
           </label>
           <input
@@ -45,15 +47,17 @@ export default function VoterDataForm({ data, onChange }) {
             placeholder="Enter middle name"
             style={{
               padding: '12px',
-              border: '1px solid #ddd',
+              border: '1px solid var(--border-color)',
               borderRadius: '4px',
-              fontSize: '16px'
+              fontSize: '16px',
+              backgroundColor: 'var(--background)',
+              color: 'var(--foreground)'
             }}
           />
         </div>
         
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <label style={{ fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>
+          <label style={{ fontWeight: 'bold', marginBottom: '8px', color: 'var(--foreground)' }}>
             First Name *
           </label>
           <input
@@ -63,15 +67,17 @@ export default function VoterDataForm({ data, onChange }) {
             placeholder="Enter first name"
             style={{
               padding: '12px',
-              border: '1px solid #ddd',
+              border: '1px solid var(--border-color)',
               borderRadius: '4px',
-              fontSize: '16px'
+              fontSize: '16px',
+              backgroundColor: 'var(--background)',
+              color: 'var(--foreground)'
             }}
           />
         </div>
         
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <label style={{ fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>
+          <label style={{ fontWeight: 'bold', marginBottom: '8px', color: 'var(--foreground)' }}>
             Phone Number *
           </label>
           <input
@@ -81,15 +87,17 @@ export default function VoterDataForm({ data, onChange }) {
             placeholder="Enter phone number"
             style={{
               padding: '12px',
-              border: '1px solid #ddd',
+              border: '1px solid var(--border-color)',
               borderRadius: '4px',
-              fontSize: '16px'
+              fontSize: '16px',
+              backgroundColor: 'var(--background)',
+              color: 'var(--foreground)'
             }}
           />
         </div>
         
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <label style={{ fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>
+          <label style={{ fontWeight: 'bold', marginBottom: '8px', color: 'var(--foreground)' }}>
             Gender *
           </label>
           <select
@@ -97,10 +105,11 @@ export default function VoterDataForm({ data, onChange }) {
             onChange={(e) => handleChange('gender', e.target.value)}
             style={{
               padding: '12px',
-              border: '1px solid #ddd',
+              border: '1px solid var(--border-color)',
               borderRadius: '4px',
               fontSize: '16px',
-              backgroundColor: 'white'
+              backgroundColor: 'var(--background)',
+              color: 'var(--foreground)'
             }}
           >
             <option value="">Select gender</option>
@@ -111,7 +120,7 @@ export default function VoterDataForm({ data, onChange }) {
         </div>
         
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <label style={{ fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>
+          <label style={{ fontWeight: 'bold', marginBottom: '8px', color: 'var(--foreground)' }}>
             Ward *
           </label>
           <input
@@ -121,15 +130,17 @@ export default function VoterDataForm({ data, onChange }) {
             placeholder="Enter ward"
             style={{
               padding: '12px',
-              border: '1px solid #ddd',
+              border: '1px solid var(--border-color)',
               borderRadius: '4px',
-              fontSize: '16px'
+              fontSize: '16px',
+              backgroundColor: 'var(--background)',
+              color: 'var(--foreground)'
             }}
           />
         </div>
         
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <label style={{ fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>
+          <label style={{ fontWeight: 'bold', marginBottom: '8px', color: 'var(--foreground)' }}>
             Unit *
           </label>
           <input
@@ -139,15 +150,17 @@ export default function VoterDataForm({ data, onChange }) {
             placeholder="Enter unit"
             style={{
               padding: '12px',
-              border: '1px solid #ddd',
+              border: '1px solid var(--border-color)',
               borderRadius: '4px',
-              fontSize: '16px'
+              fontSize: '16px',
+              backgroundColor: 'var(--background)',
+              color: 'var(--foreground)'
             }}
           />
         </div>
         
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <label style={{ fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>
+          <label style={{ fontWeight: 'bold', marginBottom: '8px', color: 'var(--foreground)' }}>
             NIN *
           </label>
           <input
@@ -157,9 +170,11 @@ export default function VoterDataForm({ data, onChange }) {
             placeholder="Enter NIN"
             style={{
               padding: '12px',
-              border: '1px solid #ddd',
+              border: '1px solid var(--border-color)',
               borderRadius: '4px',
-              fontSize: '16px'
+              fontSize: '16px',
+              backgroundColor: 'var(--background)',
+              color: 'var(--foreground)'
             }}
           />
         </div>

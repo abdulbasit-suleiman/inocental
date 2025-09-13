@@ -1,24 +1,62 @@
 'use client';
 
-import { useState } from 'react';
+import Image from "next/image";
+import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import { createExcelTemplate, downloadExcelFile } from './utils/excelUtils';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { createExcelTemplate, downloadExcelFile, saveExcelToFirebase, fetchExcelFromFirebase } from './utils/excelUtils';
 
 // Dynamically import components that use client-side APIs
 const CameraCapture = dynamic(() => import('./components/CameraCapture'), { ssr: false });
 const VoterDataForm = dynamic(() => import('./components/VoterDataForm'), { ssr: false });
 
-export default function VoterDataExtractor() {
+function VoterDataExtractorContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlSheetName = searchParams.get('sheetName');
+  
   const [step, setStep] = useState('create'); // 'create', 'capture', 'form', 'download'
   const [capturedImage, setCapturedImage] = useState(null);
   const [voterData, setVoterData] = useState({});
   const [excelData, setExcelData] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [sheetName, setSheetName] = useState('');
+  const [userId, setUserId] = useState('user-' + Date.now()); // Simple user ID for demo
+
+  // Handle URL parameter for sheet name
+  useEffect(() => {
+    if (urlSheetName) {
+      setSheetName(urlSheetName);
+    }
+  }, [urlSheetName]);
 
   // Create initial Excel template
-  const handleCreateTemplate = () => {
-    const template = createExcelTemplate();
-    setExcelData(template);
+  const handleCreateTemplate = async () => {
+    // Check if sheet already exists
+    if (sheetName) {
+      try {
+        const existingSheet = await fetchExcelFromFirebase(sheetName, userId);
+        if (existingSheet) {
+          // Load existing sheet data
+          alert(`Loading existing sheet: ${sheetName}`);
+          // In a real implementation, you would fetch the actual Excel data
+          const template = createExcelTemplate();
+          setExcelData(template);
+        } else {
+          // Create new sheet
+          const template = createExcelTemplate();
+          setExcelData(template);
+        }
+      } catch (error) {
+        console.error('Error checking sheet:', error);
+        const template = createExcelTemplate();
+        setExcelData(template);
+      }
+    } else {
+      const template = createExcelTemplate();
+      setExcelData(template);
+    }
+    
     setStep('capture');
   };
 
@@ -32,19 +70,28 @@ export default function VoterDataExtractor() {
     
     setIsProcessing(true);
     try {
-      // For now, we'll use mock data since we can't run OCR in the browser without additional setup
-      // In a real implementation, you would call the OCR processing function here
-      const mockData = {
-        surname: 'Smith',
-        middlename: 'John',
-        firstname: 'Michael',
-        phonenumber: '08012345678',
-        gender: 'Male',
-        ward: 'Ward 5',
-        unit: 'Unit 12',
-        nin: '12345678901'
-      };
-      setVoterData(mockData);
+      // Import the OCR utils dynamically to avoid server-side issues
+      const { processImageWithMultipleOCR, preprocessImageForOCR, advancedParseVoterData } = await import('./utils/ocrUtils');
+      
+      // Preprocess image for better OCR results
+      const processedImage = await preprocessImageForOCR(capturedImage);
+      
+      // Process the image with multiple OCR methods for better accuracy
+      const ocrData = await processImageWithMultipleOCR(processedImage);
+      
+      // Use advanced parsing as a fallback
+      if (!ocrData.surname || !ocrData.firstname || !ocrData.phonenumber) {
+        // If basic parsing didn't get all required fields, try advanced parsing
+        const advancedData = advancedParseVoterData(processedImage);
+        // Merge the data, prioritizing non-empty values
+        Object.keys(advancedData).forEach(key => {
+          if (!ocrData[key] && advancedData[key]) {
+            ocrData[key] = advancedData[key];
+          }
+        });
+      }
+      
+      setVoterData(ocrData);
     } catch (error) {
       console.error('Error processing image:', error);
       alert('Failed to process image. Please try again.');
@@ -74,18 +121,33 @@ export default function VoterDataExtractor() {
 
   const handleDownloadExcel = () => {
     // Export to Excel
-    downloadExcelFile(excelData, 'voter_data.xlsx');
+    downloadExcelFile(excelData, `${sheetName || 'voter_data'}.xlsx`);
+  };
+
+  const handleSaveToFirebase = async () => {
+    if (!sheetName) {
+      alert('Please enter a sheet name');
+      return;
+    }
+    
+    try {
+      await saveExcelToFirebase(excelData, sheetName, userId);
+      alert('Excel sheet saved to Firebase successfully!');
+    } catch (error) {
+      console.error('Error saving to Firebase:', error);
+      alert('Failed to save Excel sheet to Firebase');
+    }
   };
 
   return (
     <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'Arial, sans-serif' }}>
-      <h1 style={{ textAlign: 'center', color: '#333', marginBottom: '30px' }}>Voter Data Extractor</h1>
+      <h1 style={{ textAlign: 'center', color: 'var(--foreground)', marginBottom: '30px' }}>Voter Data Extractor</h1>
       
       {step === 'create' && (
-        <div style={{ textAlign: 'center', padding: '40px' }}>
+        <div style={{ textAlign: 'center', padding: '40px', backgroundColor: 'var(--card-background)', borderRadius: '8px' }}>
           <h2>Create New Voter Data Sheet</h2>
           <p>This will create an Excel template with the required fields:</p>
-          <ul style={{ textAlign: 'left', display: 'inline-block', fontSize: '18px' }}>
+          <ul style={{ textAlign: 'left', display: 'inline-block', fontSize: '18px', color: 'var(--text-muted)' }}>
             <li>Surname</li>
             <li>Middle Name</li>
             <li>First Name</li>
@@ -95,18 +157,42 @@ export default function VoterDataExtractor() {
             <li>Unit</li>
             <li>NIN</li>
           </ul>
+          
+          <div style={{ marginTop: '20px' }}>
+            <label style={{ display: 'block', marginBottom: '10px', fontWeight: 'bold', color: 'var(--foreground)' }}>
+              Excel Sheet Name:
+            </label>
+            <input
+              type="text"
+              value={sheetName}
+              onChange={(e) => setSheetName(e.target.value)}
+              placeholder="Enter sheet name"
+              style={{
+                padding: '12px',
+                border: '1px solid var(--border-color)',
+                borderRadius: '4px',
+                fontSize: '16px',
+                width: '300px',
+                backgroundColor: 'var(--background)',
+                color: 'var(--foreground)'
+              }}
+            />
+          </div>
+          
           <button 
             onClick={handleCreateTemplate}
+            disabled={!sheetName}
             style={{
               padding: '15px 30px',
               fontSize: '18px',
-              backgroundColor: '#4CAF50',
+              backgroundColor: sheetName ? 'var(--button-success)' : 'var(--button-secondary)',
               color: 'white',
               border: 'none',
               borderRadius: '4px',
-              cursor: 'pointer',
+              cursor: sheetName ? 'pointer' : 'not-allowed',
               fontWeight: 'bold',
-              marginTop: '20px'
+              marginTop: '20px',
+              opacity: sheetName ? 1 : 0.6
             }}
           >
             Create Excel Template
@@ -116,24 +202,41 @@ export default function VoterDataExtractor() {
       
       {step === 'capture' && (
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
             <h2>Capture Voter Form</h2>
-            <button 
-              onClick={handleDownloadExcel}
-              disabled={excelData.length <= 1}
-              style={{
-                padding: '10px 20px',
-                backgroundColor: excelData.length <= 1 ? '#ccc' : '#2196F3',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: excelData.length <= 1 ? 'not-allowed' : 'pointer',
-                fontWeight: 'bold',
-                opacity: excelData.length <= 1 ? 0.6 : 1
-              }}
-            >
-              Download Sheet ({excelData.length - 1} entries)
-            </button>
+            <div>
+              <button 
+                onClick={handleDownloadExcel}
+                disabled={excelData.length <= 1}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: excelData.length <= 1 ? 'var(--button-secondary)' : 'var(--button-primary)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: excelData.length <= 1 ? 'not-allowed' : 'pointer',
+                  fontWeight: 'bold',
+                  marginRight: '10px',
+                  opacity: excelData.length <= 1 ? 0.6 : 1
+                }}
+              >
+                Download Sheet ({excelData.length - 1} entries)
+              </button>
+              <button 
+                onClick={handleSaveToFirebase}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: 'var(--button-success)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >
+                Save to Firebase
+              </button>
+            </div>
           </div>
           <CameraCapture onCapture={handleImageCapture} />
         </div>
@@ -147,7 +250,15 @@ export default function VoterDataExtractor() {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '30px', marginTop: '20px' }}>
             <div style={{ flex: '1', minWidth: '300px' }}>
               <h3>Captured Image</h3>
-              <img src={capturedImage} alt="Captured voter form" style={{ maxWidth: '100%', height: 'auto', border: '1px solid #ddd', borderRadius: '4px' }} />
+              <div style={{ maxWidth: '100%', height: 'auto', border: '1px solid var(--border-color)', borderRadius: '4px', overflow: 'hidden' }}>
+                <Image 
+                  src={capturedImage} 
+                  alt="Captured voter form" 
+                  width={500} 
+                  height={300} 
+                  style={{ maxWidth: '100%', height: 'auto' }} 
+                />
+              </div>
               <button 
                 onClick={() => setStep('capture')}
                 style={{
@@ -156,7 +267,7 @@ export default function VoterDataExtractor() {
                   borderRadius: '4px',
                   cursor: 'pointer',
                   fontWeight: 'bold',
-                  backgroundColor: '#f0f0f0',
+                  backgroundColor: 'var(--button-secondary)',
                   marginTop: '10px'
                 }}
               >
@@ -171,7 +282,7 @@ export default function VoterDataExtractor() {
                   borderRadius: '4px',
                   cursor: 'pointer',
                   fontWeight: 'bold',
-                  backgroundColor: '#4CAF50',
+                  backgroundColor: 'var(--button-success)',
                   color: 'white',
                   marginTop: '10px',
                   marginLeft: '10px',
@@ -195,7 +306,7 @@ export default function VoterDataExtractor() {
                     borderRadius: '4px',
                     cursor: 'pointer',
                     fontWeight: 'bold',
-                    backgroundColor: (!voterData.surname || !voterData.firstname || !voterData.phonenumber || !voterData.gender || !voterData.ward || !voterData.unit || !voterData.nin) ? '#ccc' : '#2196F3',
+                    backgroundColor: (!voterData.surname || !voterData.firstname || !voterData.phonenumber || !voterData.gender || !voterData.ward || !voterData.unit || !voterData.nin) ? 'var(--button-secondary)' : 'var(--button-primary)',
                     color: 'white',
                     fontSize: '16px',
                     opacity: (!voterData.surname || !voterData.firstname || !voterData.phonenumber || !voterData.gender || !voterData.ward || !voterData.unit || !voterData.nin) ? 0.6 : 1,
@@ -212,7 +323,7 @@ export default function VoterDataExtractor() {
                     borderRadius: '4px',
                     cursor: 'pointer',
                     fontWeight: 'bold',
-                    backgroundColor: '#f0f0f0',
+                    backgroundColor: 'var(--button-secondary)',
                     marginLeft: '10px',
                     fontSize: '16px'
                   }}
@@ -226,4 +337,26 @@ export default function VoterDataExtractor() {
       )}
     </div>
   );
+}
+
+// Wrapper component to handle server-side rendering
+export default function VoterDataExtractor() {
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  if (!isClient) {
+    return (
+      <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'Arial, sans-serif' }}>
+        <h1 style={{ textAlign: 'center', color: 'var(--foreground)', marginBottom: '30px' }}>Voter Data Extractor</h1>
+        <div style={{ textAlign: 'center', padding: '40px', backgroundColor: 'var(--card-background)', borderRadius: '8px' }}>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return <VoterDataExtractorContent />;
 }

@@ -1,13 +1,27 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --card-background: #f5f5f5;
+  --border-color: #e0e0e0;
+  --button-primary: #2196F3;
+  --button-secondary: #f0f0f0;
+  --button-success: #4CAF50;
+  --button-warning: #FF9800;
+  --button-danger: #f44336;
+  --text-muted: #666666;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+[data-theme="dark"] {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --card-background: #1a1a1a;
+  --border-color: #333333;
+  --button-primary: #1976D2;
+  --button-secondary: #2a2a2a;
+  --button-success: #388E3C;
+  --button-warning: #F57C00;
+  --button-danger: #D32F2F;
+  --text-muted: #aaaaaa;
 }
 
 html,
@@ -22,6 +36,7 @@ body {
   font-family: Arial, Helvetica, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.3s, color 0.3s;
 }
 
 * {
@@ -33,6 +48,143 @@ body {
 a {
   color: inherit;
   text-decoration: none;
+}
+
+button {
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+}
+
+/* Theme toggle button */
+.theme-toggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  padding: 10px 15px;
+  border-radius: 50px;
+  background: var(--card-background);
+  border: 1px solid var(--border-color);
+  color: var(--foreground);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .theme-toggle {
+    top: 10px;
+    right: 10px;
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  
+  /* Adjust padding for mobile */
+  div[style*="padding: 20px"] {
+    padding: 15px !important;
+  }
+  
+  div[style*="padding: 40px"] {
+    padding: 20px !important;
+  }
+  
+  /* Adjust button sizes for mobile */
+  button[style*="padding: 15px"] {
+    padding: 12px 20px !important;
+    font-size: 16px !important;
+  }
+  
+  button[style*="padding: 12px"] {
+    padding: 10px 15px !important;
+    font-size: 14px !important;
+  }
+  
+  button[style*="padding: 10px"] {
+    padding: 8px 12px !important;
+    font-size: 14px !important;
+  }
+  
+  /* Adjust input sizes for mobile */
+  input[style*="padding: 12px"] {
+    padding: 10px !important;
+    font-size: 16px !important; /* Prevents zoom on iOS */
+  }
+  
+  input[style*="padding: 15px"] {
+    padding: 12px !important;
+    font-size: 16px !important; /* Prevents zoom on iOS */
+  }
+  
+  /* Adjust grid layouts for mobile */
+  div[style*="gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))'"] {
+    grid-template-columns: 1fr !important;
+  }
+  
+  div[style*="display: 'grid'"] {
+    grid-template-columns: 1fr !important;
+  }
+  
+  /* Adjust flex layouts for mobile */
+  div[style*="display: 'flex'"] {
+    flex-direction: column !important;
+  }
+  
+  div[style*="minWidth: '300px'"] {
+    min-width: 100% !important;
+  }
+  
+  /* Adjust text sizes for mobile */
+  h1 {
+    font-size: 24px !important;
+  }
+  
+  h2 {
+    font-size: 20px !important;
+  }
+  
+  h3 {
+    font-size: 18px !important;
+  }
+  
+  p {
+    font-size: 14px !important;
+  }
+  
+  ul[style*="fontSize: '18px'"] {
+    font-size: 16px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .theme-toggle {
+    top: 8px;
+    right: 8px;
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+  
+  /* Further adjustments for small screens */
+  button[style*="padding: 15px"] {
+    padding: 10px 15px !important;
+    font-size: 14px !important;
+  }
+  
+  div[style*="maxWidth: '1200px'"] {
+    max-width: 100% !important;
+  }
+  
+  div[style*="width: '300px'"] {
+    width: 100% !important;
+  }
+  
+  /* Stack buttons vertically on very small screens */
+  div[style*="marginRight: '10px'"] {
+    margin-right: 0 !important;
+    margin-bottom: 10px !important;
+    display: block !important;
+    width: 100% !important;
+  }
 }
 
 @media (prefers-color-scheme: dark) {

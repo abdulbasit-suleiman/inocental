@@ -1,27 +1,28 @@
 'use client';
 
+import { utils, write } from 'xlsx';
+import { db, storage } from '../../../../firebase';
+import { collection, addDoc, getDocs, query, where, doc, updateDoc } from 'firebase/firestore';
+import { ref, uploadString, getDownloadURL } from 'firebase/storage';
+
 // Function to create and download Excel file with voter data
 export function downloadExcelFile(data, filename = 'voter_data.xlsx') {
-  // In a real implementation, you would use a library like xlsx to create the Excel file
-  // For now, we'll simulate the process and create a downloadable JSON file
+  // Create worksheet
+  const ws = utils.json_to_sheet(data);
   
-  // Create CSV content
-  const headers = ['surname', 'middlename', 'firstname', 'phonenumber', 'gender', 'ward', 'unit', 'nin'];
-  const csvContent = [
-    headers.join(','),
-    ...data.map(row => 
-      headers.map(header => 
-        `"${row[header] || ''}"`
-      ).join(',')
-    )
-  ].join('\n');
+  // Create workbook
+  const wb = utils.book_new();
+  utils.book_append_sheet(wb, ws, 'Voter Data');
+  
+  // Write to buffer
+  const wbout = write(wb, { bookType: 'xlsx', type: 'array' });
   
   // Create blob and download
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const blob = new Blob([wbout], { type: 'application/octet-stream' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.setAttribute('href', url);
-  link.setAttribute('download', filename.replace('.xlsx', '.csv'));
+  link.setAttribute('download', filename);
   link.style.visibility = 'hidden';
   document.body.appendChild(link);
   link.click();
@@ -40,4 +41,106 @@ export function createExcelTemplate() {
     unit: '',
     nin: ''
   }];
+}
+
+// Function to save Excel data to Firebase
+export async function saveExcelToFirebase(data, sheetName, userId) {
+  try {
+    // Create worksheet
+    const ws = utils.json_to_sheet(data);
+    
+    // Create workbook
+    const wb = utils.book_new();
+    utils.book_append_sheet(wb, ws, 'Voter Data');
+    
+    // Write to buffer as base64
+    const wbout = write(wb, { bookType: 'xlsx', type: 'base64' });
+    
+    // Upload to Firebase Storage
+    const storageRef = ref(storage, `excel-sheets/${userId}/${sheetName}.xlsx`);
+    await uploadString(storageRef, wbout, 'base64');
+    
+    // Get download URL
+    const downloadURL = await getDownloadURL(storageRef);
+    
+    // Save metadata to Firestore
+    const sheetData = {
+      name: sheetName,
+      userId: userId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      downloadURL: downloadURL
+    };
+    
+    // Check if sheet already exists
+    const q = query(
+      collection(db, 'excelSheets'),
+      where('name', '==', sheetName),
+      where('userId', '==', userId)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    
+    if (querySnapshot.empty) {
+      // Create new document
+      const docRef = await addDoc(collection(db, 'excelSheets'), sheetData);
+      return docRef.id;
+    } else {
+      // Update existing document
+      const docId = querySnapshot.docs[0].id;
+      const docRef = doc(db, 'excelSheets', docId);
+      await updateDoc(docRef, { ...sheetData, updatedAt: new Date() });
+      return docId;
+    }
+  } catch (error) {
+    console.error('Error saving Excel to Firebase:', error);
+    throw new Error('Failed to save Excel sheet to Firebase');
+  }
+}
+
+// Function to fetch Excel data from Firebase
+export async function fetchExcelFromFirebase(sheetName, userId) {
+  try {
+    // Query Firestore for the sheet
+    const q = query(
+      collection(db, 'excelSheets'),
+      where('name', '==', sheetName),
+      where('userId', '==', userId)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    
+    if (!querySnapshot.empty) {
+      const sheetDoc = querySnapshot.docs[0];
+      return {
+        id: sheetDoc.id,
+        ...sheetDoc.data()
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error fetching Excel from Firebase:', error);
+    throw new Error('Failed to fetch Excel sheet from Firebase');
+  }
+}
+
+// Function to fetch all Excel sheets for admin
+export async function fetchAllExcelSheetsForAdmin() {
+  try {
+    const querySnapshot = await getDocs(collection(db, 'excelSheets'));
+    const sheets = [];
+    
+    querySnapshot.forEach((doc) => {
+      sheets.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+    
+    return sheets;
+  } catch (error) {
+    console.error('Error fetching all Excel sheets:', error);
+    throw new Error('Failed to fetch all Excel sheets');
+  }
 }
