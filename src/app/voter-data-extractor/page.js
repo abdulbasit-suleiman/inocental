@@ -5,6 +5,8 @@ import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createExcelTemplate, downloadExcelFile, saveExcelToFirebase, fetchExcelFromFirebase } from './utils/excelUtils';
+import { auth } from '../../firebase';
+import { signInAnonymously } from 'firebase/auth';
 
 // Dynamically import components that use client-side APIs
 const CameraCapture = dynamic(() => import('./components/CameraCapture'), { ssr: false });
@@ -23,11 +25,24 @@ function VoterDataExtractorContent() {
   const [sheetName, setSheetName] = useState('');
   const [userId, setUserId] = useState('user-' + Date.now()); // Simple user ID for demo
 
-  // Handle URL parameter for sheet name
+  // Handle URL parameter for sheet name and authenticate user
   useEffect(() => {
     if (urlSheetName) {
       setSheetName(urlSheetName);
     }
+    
+    // Sign in anonymously
+    signInAnonymously(auth)
+      .then((userCredential) => {
+        // Signed in..
+        const user = userCredential.user;
+        setUserId(user.uid);
+        console.log('Anonymous user signed in:', user.uid);
+      })
+      .catch((error) => {
+        console.error('Error signing in anonymously:', error);
+        // Fallback to simple user ID
+      });
   }, [urlSheetName]);
 
   // Create initial Excel template
@@ -136,7 +151,13 @@ function VoterDataExtractorContent() {
       alert('Excel sheet saved to Firebase successfully!');
     } catch (error) {
       console.error('Error saving to Firebase:', error);
-      alert('Failed to save Excel sheet to Firebase: ' + error.message);
+      if (error.message.includes('CORS')) {
+        alert('CORS error when saving to Firebase. Please check the Firebase Rules Setup documentation for instructions on configuring CORS.');
+      } else if (error.message.includes('Unauthorized')) {
+        alert('Unauthorized access to Firebase. Please check your Firebase security rules.');
+      } else {
+        alert('Failed to save Excel sheet to Firebase: ' + error.message);
+      }
     }
   };
 

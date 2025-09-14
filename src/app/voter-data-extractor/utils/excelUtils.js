@@ -102,9 +102,11 @@ export async function saveExcelToFirebase(data, sheetName, userId) {
     console.error('Error saving Excel to Firebase:', error);
     // More specific error handling
     if (error.code === 'storage/unauthorized') {
-      throw new Error('Unauthorized access to Firebase Storage. Please check your Firebase rules.');
+      throw new Error('Unauthorized access to Firebase Storage. Please check your Firebase rules and CORS configuration.');
     } else if (error.code === 'storage/canceled') {
       throw new Error('Upload was canceled.');
+    } else if (error.message.includes('CORS') || error.message.includes('preflight')) {
+      throw new Error('CORS error when accessing Firebase Storage. Please check your CORS configuration.');
     } else {
       throw new Error('Failed to save Excel sheet to Firebase: ' + error.message);
     }
@@ -134,6 +136,11 @@ export async function fetchExcelFromFirebase(sheetName, userId) {
     return null;
   } catch (error) {
     console.error('Error fetching Excel from Firebase:', error);
+    // If it's a permissions error, we treat it as "sheet not found" to allow creation of new sheets
+    if (error.code === 'permission-denied' || error.message.includes('Missing or insufficient permissions')) {
+      console.warn('Insufficient permissions to check for existing sheet. Proceeding with new sheet creation.');
+      return null; // Treat as "not found" to allow creating new sheet
+    }
     throw new Error('Failed to fetch Excel sheet from Firebase: ' + error.message);
   }
 }
