@@ -11,6 +11,7 @@ export default function AdminDashboard() {
   const [error, setError] = useState('');
 
   const handleAccess = () => {
+    // Simple admin access for demo - in production, use proper authentication
     if (inputValue === 'Admin001') {
       setIsAdmin(true);
     } else {
@@ -22,8 +23,11 @@ export default function AdminDashboard() {
   const fetchSheets = async () => {
     setLoading(true);
     setError('');
+    
     try {
+      console.log('Fetching Excel sheets for admin...');
       const allSheets = await fetchAllExcelSheetsForAdmin();
+      console.log('Fetched sheets:', allSheets);
       setSheets(allSheets);
     } catch (error) {
       console.error('Error fetching sheets:', error);
@@ -145,11 +149,22 @@ export default function AdminDashboard() {
           borderRadius: '4px',
           marginBottom: '20px'
         }}>
-          {error}
+          <strong>Error:</strong> {error}
+          <br />
+          <small>Please check your Firebase configuration and security rules.</small>
         </div>
       )}
 
-      {sheets.length === 0 ? (
+      {loading ? (
+        <div style={{ 
+          textAlign: 'center', 
+          padding: '60px 20px',
+          backgroundColor: 'var(--card-background)',
+          borderRadius: '8px'
+        }}>
+          <p>Loading Excel sheets...</p>
+        </div>
+      ) : sheets.length === 0 ? (
         <div style={{ 
           textAlign: 'center', 
           padding: '60px 20px',
@@ -158,6 +173,21 @@ export default function AdminDashboard() {
         }}>
           <h2>No Excel Sheets Found</h2>
           <p>There are currently no Excel sheets in the database.</p>
+          <button
+            onClick={fetchSheets}
+            style={{
+              marginTop: '15px',
+              padding: '10px 20px',
+              backgroundColor: 'var(--button-primary)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 'bold'
+            }}
+          >
+            Retry
+          </button>
         </div>
       ) : (
         <div style={{
@@ -181,10 +211,13 @@ export default function AdminDashboard() {
                 <strong>User ID:</strong> {sheet.userId}
               </p>
               <p style={{ marginBottom: '8px', color: 'var(--text-muted)' }}>
-                <strong>Created:</strong> {sheet.createdAt ? new Date(sheet.createdAt.seconds * 1000).toLocaleString() : 'N/A'}
+                <strong>Records:</strong> {sheet.recordCount || 0}
+              </p>
+              <p style={{ marginBottom: '8px', color: 'var(--text-muted)' }}>
+                <strong>Created:</strong> {sheet.createdAt ? new Date(sheet.createdAt).toLocaleString() : 'N/A'}
               </p>
               <p style={{ marginBottom: '15px', color: 'var(--text-muted)' }}>
-                <strong>Updated:</strong> {sheet.updatedAt ? new Date(sheet.updatedAt.seconds * 1000).toLocaleString() : 'N/A'}
+                <strong>Updated:</strong> {sheet.updatedAt ? new Date(sheet.updatedAt).toLocaleString() : 'N/A'}
               </p>
               <a
                 href={sheet.downloadURL}

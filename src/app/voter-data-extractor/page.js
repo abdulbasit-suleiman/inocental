@@ -24,6 +24,8 @@ function VoterDataExtractorContent() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [sheetName, setSheetName] = useState('');
   const [userId, setUserId] = useState('user-' + Date.now()); // Simple user ID for demo
+  const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   // Handle URL parameter for sheet name and authenticate user
   useEffect(() => {
@@ -42,18 +44,28 @@ function VoterDataExtractorContent() {
       .catch((error) => {
         console.error('Error signing in anonymously:', error);
         // Fallback to simple user ID
+        setError('Authentication failed. Some features may be limited.');
       });
   }, [urlSheetName]);
 
   // Create initial Excel template
   const handleCreateTemplate = async () => {
+    // Validate sheet name
+    if (!sheetName || sheetName.trim() === '') {
+      setError('Please enter a valid sheet name');
+      return;
+    }
+    
+    setError('');
+    setSuccessMessage('');
+    
     // Check if sheet already exists
     if (sheetName) {
       try {
-        const existingSheet = await fetchExcelFromFirebase(sheetName, userId);
+        const existingSheet = await fetchExcelFromFirebase(sheetName.trim(), userId);
         if (existingSheet) {
           // Load existing sheet data
-          alert(`Loading existing sheet: ${sheetName}`);
+          setSuccessMessage(`Loading existing sheet: ${sheetName}`);
           // In a real implementation, you would fetch the actual Excel data
           const template = createExcelTemplate();
           setExcelData(template);
@@ -61,12 +73,14 @@ function VoterDataExtractorContent() {
           // Create new sheet
           const template = createExcelTemplate();
           setExcelData(template);
+          setSuccessMessage('Created new Excel template');
         }
       } catch (error) {
         console.error('Error checking sheet:', error);
         // If there's an error fetching, still create a new template
         const template = createExcelTemplate();
         setExcelData(template);
+        setError('Could not check for existing sheet. Created new template.');
       }
     } else {
       const template = createExcelTemplate();
@@ -82,35 +96,34 @@ function VoterDataExtractorContent() {
   };
 
   const handleProcessImage = async () => {
-    if (!capturedImage) return;
+    if (!capturedImage) {
+      setError('No image captured');
+      return;
+    }
     
     setIsProcessing(true);
+    setError('');
+    setSuccessMessage('');
+    
     try {
       // Import the OCR utils dynamically to avoid server-side issues
-      const { processImageWithMultipleOCR, preprocessImageForOCR, advancedParseVoterData } = await import('./utils/ocrUtils');
+      const { processImageWithMultipleOCR, preprocessImageForOCR } = await import('./utils/ocrUtils');
+      
+      setSuccessMessage('Preprocessing image for better OCR results...');
       
       // Preprocess image for better OCR results
       const processedImage = await preprocessImageForOCR(capturedImage);
       
-      // Process the image with multiple OCR methods for better accuracy
+      setSuccessMessage('Extracting data from image (this may take a few seconds)...');
+      
+      // Process the image with optimized OCR method
       const ocrData = await processImageWithMultipleOCR(processedImage);
       
-      // Use advanced parsing as a fallback
-      if (!ocrData.surname || !ocrData.firstname || !ocrData.phonenumber) {
-        // If basic parsing didn't get all required fields, try advanced parsing
-        const advancedData = advancedParseVoterData(processedImage);
-        // Merge the data, prioritizing non-empty values
-        Object.keys(advancedData).forEach(key => {
-          if (!ocrData[key] && advancedData[key]) {
-            ocrData[key] = advancedData[key];
-          }
-        });
-      }
-      
       setVoterData(ocrData);
+      setSuccessMessage('Data extracted successfully! Please review and edit as needed.');
     } catch (error) {
       console.error('Error processing image:', error);
-      alert('Failed to process image. Please try again.');
+      setError('Failed to process image: ' + error.message);
     } finally {
       setIsProcessing(false);
     }
@@ -124,46 +137,106 @@ function VoterDataExtractorContent() {
   };
 
   const handleAddToExcel = () => {
+    // Validate required fields
+    if (!voterData.surname || !voterData.firstname || !voterData.phonenumber || 
+        !voterData.gender || !voterData.ward || !voterData.unit || !voterData.nin) {
+      setError('Please fill in all required fields');
+      return;
+    }
+    
     // Add the current voter data to the excel data
     const newData = [...excelData];
     newData.push(voterData);
     setExcelData(newData);
     
+    setSuccessMessage('Data added to Excel sheet');
+    
     // Reset for next entry
     setVoterData({});
     setCapturedImage(null);
     setStep('capture');
+    setError('');
   };
 
   const handleDownloadExcel = () => {
-    // Export to Excel
-    downloadExcelFile(excelData, `${sheetName || 'voter_data'}.xlsx`);
-  };
-
-  const handleSaveToFirebase = async () => {
-    if (!sheetName) {
-      alert('Please enter a sheet name');
+    if (excelData.length <= 1) {
+      setError('No data to download. Please add at least one entry.');
       return;
     }
     
+    // Export to Excel
+    downloadExcelFile(excelData, `${sheetName || 'voter_data'}.xlsx`);
+    setSuccessMessage('Excel file downloaded successfully');
+  };
+
+  const handleSaveToFirebase = async () => {
+    if (!sheetName || sheetName.trim() === '') {
+      setError('Please enter a sheet name');
+      return;
+    }
+    
+    if (excelData.length <= 1) {
+      setError('No data to save. Please add at least one entry.');
+      return;
+    }
+    
+    setError('');
+    setSuccessMessage('');
+    
     try {
-      await saveExcelToFirebase(excelData, sheetName, userId);
-      alert('Excel sheet saved to Firebase successfully!');
+      const docId = await saveExcelToFirebase(excelData, sheetName.trim(), userId);
+      setSuccessMessage(`Excel sheet saved to Firebase successfully! Document ID: ${docId}`);
     } catch (error) {
       console.error('Error saving to Firebase:', error);
       if (error.message.includes('CORS')) {
-        alert('CORS error when saving to Firebase. Please check the Firebase Rules Setup documentation for instructions on configuring CORS.');
+        setError('CORS error when saving to Firebase. Please check the Firebase Rules Setup documentation for instructions on configuring CORS.');
       } else if (error.message.includes('Unauthorized')) {
-        alert('Unauthorized access to Firebase. Please check your Firebase security rules.');
+        setError('Unauthorized access to Firebase. Please check your Firebase security rules.');
       } else {
-        alert('Failed to save Excel sheet to Firebase: ' + error.message);
+        setError('Failed to save Excel sheet to Firebase: ' + error.message);
       }
     }
   };
 
+  // Clear messages after a few seconds
+  useEffect(() => {
+    if (error || successMessage) {
+      const timer = setTimeout(() => {
+        setError('');
+        setSuccessMessage('');
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error, successMessage]);
+
   return (
     <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'Arial, sans-serif' }}>
       <h1 style={{ textAlign: 'center', color: 'var(--foreground)', marginBottom: '30px' }}>Voter Data Extractor</h1>
+      
+      {/* Error and success messages */}
+      {error && (
+        <div style={{
+          backgroundColor: '#ffebee',
+          color: '#c62828',
+          padding: '15px',
+          borderRadius: '4px',
+          marginBottom: '20px'
+        }}>
+          {error}
+        </div>
+      )}
+      
+      {successMessage && (
+        <div style={{
+          backgroundColor: '#e8f5e9',
+          color: '#2e7d32',
+          padding: '15px',
+          borderRadius: '4px',
+          marginBottom: '20px'
+        }}>
+          {successMessage}
+        </div>
+      )}
       
       {step === 'create' && (
         <div style={{ textAlign: 'center', padding: '40px', backgroundColor: 'var(--card-background)', borderRadius: '8px' }}>
@@ -203,18 +276,18 @@ function VoterDataExtractorContent() {
           
           <button 
             onClick={handleCreateTemplate}
-            disabled={!sheetName}
+            disabled={!sheetName || sheetName.trim() === ''}
             style={{
               padding: '15px 30px',
               fontSize: '18px',
-              backgroundColor: sheetName ? 'var(--button-success)' : 'var(--button-secondary)',
+              backgroundColor: (sheetName && sheetName.trim() !== '') ? 'var(--button-success)' : 'var(--button-secondary)',
               color: 'white',
               border: 'none',
               borderRadius: '4px',
-              cursor: sheetName ? 'pointer' : 'not-allowed',
+              cursor: (sheetName && sheetName.trim() !== '') ? 'pointer' : 'not-allowed',
               fontWeight: 'bold',
               marginTop: '20px',
-              opacity: sheetName ? 1 : 0.6
+              opacity: (sheetName && sheetName.trim() !== '') ? 1 : 0.6
             }}
           >
             Create Excel Template

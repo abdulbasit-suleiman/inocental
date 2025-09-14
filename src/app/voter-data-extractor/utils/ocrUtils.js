@@ -2,31 +2,47 @@
 
 import Tesseract from 'tesseract.js';
 
-// Function to process image with Tesseract.js OCR
+// Function to process image with optimized Tesseract.js OCR
 export async function processImageWithOCR(imageSrc) {
   try {
-    // Perform OCR on the image
-    const result = await Tesseract.recognize(
+    // Create a promise that rejects after a timeout
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('OCR processing timed out after 30 seconds')), 30000);
+    });
+    
+    // Perform OCR on the image with optimized settings for speed
+    const ocrPromise = Tesseract.recognize(
       imageSrc,
       'eng',
       { 
-        logger: info => console.log(info),
-        tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz@.-() '
+        logger: info => {
+          // Only log progress if needed for debugging
+          if (info.status === 'recognizing text') {
+            console.log(`OCR Progress: ${Math.round(info.progress * 100)}%`);
+          }
+        },
+        // Optimized settings for faster processing
+        tessedit_pageseg_mode: Tesseract.PSM.SINGLE_BLOCK,
+        preserve_interword_spaces: '1',
+        // Limit character set for voter forms
+        tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz@.-()/# '
       }
     );
+    
+    // Race the OCR promise against the timeout
+    const result = await Promise.race([ocrPromise, timeoutPromise]);
     
     // Extract text from the result
     const text = result.data.text;
     console.log('OCR Result:', text);
     
     // Parse the extracted text to find voter information
-    // This is a simplified parsing - in a real implementation, you would have more sophisticated logic
     const voterData = parseVoterData(text);
     
     return voterData;
   } catch (error) {
     console.error('OCR Error:', error);
-    throw new Error('Failed to process image with OCR');
+    throw new Error('Failed to process image with OCR: ' + error.message);
   }
 }
 
@@ -162,60 +178,42 @@ function parseVoterData(text) {
   return data;
 }
 
-// Function to process image with multiple OCR methods for better accuracy
+// Function to process image with a single, optimized OCR method for better performance
 export async function processImageWithMultipleOCR(imageSrc) {
   try {
-    // Method 1: Standard Tesseract
-    const result1 = await Tesseract.recognize(
-      imageSrc,
-      'eng',
-      { 
-        logger: info => console.log('Tesseract 1:', info)
-      }
-    );
+    // Create a promise that rejects after a timeout
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('OCR processing timed out after 30 seconds')), 30000);
+    });
     
-    // Method 2: Tesseract with different configuration
-    const result2 = await Tesseract.recognize(
+    // Single optimized OCR pass for better performance
+    const ocrPromise = Tesseract.recognize(
       imageSrc,
       'eng',
       {
-        logger: info => console.log('Tesseract 2:', info),
+        logger: info => {
+          // Only log progress if needed for debugging
+          if (info.status === 'recognizing text') {
+            console.log(`OCR Progress: ${Math.round(info.progress * 100)}%`);
+          }
+        },
+        // Optimized settings for voter forms
         tessedit_pageseg_mode: Tesseract.PSM.SINGLE_BLOCK,
-        tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz@.-() '
+        preserve_interword_spaces: '1',
+        tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz@.-()/# '
       }
     );
     
-    // Method 3: Tesseract with different page segmentation mode
-    const result3 = await Tesseract.recognize(
-      imageSrc,
-      'eng',
-      {
-        logger: info => console.log('Tesseract 3:', info),
-        tessedit_pageseg_mode: Tesseract.PSM.AUTO
-      }
-    );
+    // Race the OCR promise against the timeout
+    const result = await Promise.race([ocrPromise, timeoutPromise]);
     
-    // Method 4: Tesseract with OSD (Orientation and Script Detection)
-    const result4 = await Tesseract.recognize(
-      imageSrc,
-      'eng',
-      {
-        logger: info => console.log('Tesseract 4:', info),
-        tessedit_pageseg_mode: Tesseract.PSM.AUTO_OSD
-      }
-    );
-    
-    // Combine results for better accuracy
-    const combinedText = result1.data.text + ' ' + result2.data.text + ' ' + result3.data.text + ' ' + result4.data.text;
-    console.log('Combined OCR Result:', combinedText);
-    
-    // Parse the combined text
-    const voterData = parseVoterData(combinedText);
+    // Parse the text
+    const voterData = parseVoterData(result.data.text);
     
     return voterData;
   } catch (error) {
-    console.error('Multi-OCR Error:', error);
-    throw new Error('Failed to process image with multiple OCR methods');
+    console.error('Optimized OCR Error:', error);
+    throw new Error('Failed to process image with optimized OCR: ' + error.message);
   }
 }
 
@@ -227,21 +225,32 @@ export function preprocessImageForOCR(imageSrc) {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       
-      // Set canvas dimensions
-      canvas.width = img.width;
-      canvas.height = img.height;
+      // Set canvas dimensions (scale down for better performance)
+      const maxWidth = 800;
+      const scale = Math.min(maxWidth / img.width, 1);
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
       
       // Draw image
-      ctx.drawImage(img, 0, 0);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       
       // Get image data
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const data = imageData.data;
       
-      // Apply simple thresholding to improve OCR
+      // Apply contrast enhancement and thresholding to improve OCR
       for (let i = 0; i < data.length; i += 4) {
-        const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-        const threshold = avg > 128 ? 255 : 0;
+        // Increase contrast
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        
+        // Convert to grayscale
+        const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+        
+        // Apply threshold (higher contrast for text)
+        const threshold = gray > 150 ? 255 : 0;
+        
         data[i] = threshold;     // red
         data[i + 1] = threshold; // green
         data[i + 2] = threshold; // blue
@@ -251,7 +260,7 @@ export function preprocessImageForOCR(imageSrc) {
       ctx.putImageData(imageData, 0, 0);
       
       // Return processed image as data URL
-      resolve(canvas.toDataURL('image/jpeg'));
+      resolve(canvas.toDataURL('image/jpeg', 0.8)); // Reduced quality for faster processing
     };
     img.src = imageSrc;
   });
