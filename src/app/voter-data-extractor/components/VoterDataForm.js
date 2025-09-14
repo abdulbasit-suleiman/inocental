@@ -84,7 +84,47 @@ export default function VoterDataForm({ data, onChange }) {
             type="text"
             value={data.phonenumber || ''}
             onChange={(e) => handleChange('phonenumber', e.target.value)}
-            placeholder="Enter phone number"
+            placeholder="Enter phone number (080...)"
+            style={{
+              padding: '12px',
+              border: '1px solid var(--border-color)',
+              borderRadius: '4px',
+              fontSize: '16px',
+              backgroundColor: 'var(--background)',
+              color: 'var(--foreground)'
+            }}
+          />
+        </div>
+        
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <label style={{ fontWeight: 'bold', marginBottom: '8px', color: 'var(--foreground)' }}>
+            Application Number *
+          </label>
+          <input
+            type="text"
+            value={data.applicationnumber || ''}
+            onChange={(e) => handleChange('applicationnumber', e.target.value)}
+            placeholder="Enter application number (PRE...)"
+            style={{
+              padding: '12px',
+              border: '1px solid var(--border-color)',
+              borderRadius: '4px',
+              fontSize: '16px',
+              backgroundColor: 'var(--background)',
+              color: 'var(--foreground)'
+            }}
+          />
+        </div>
+        
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <label style={{ fontWeight: 'bold', marginBottom: '8px', color: 'var(--foreground)' }}>
+            Date of Birth *
+          </label>
+          <input
+            type="text"
+            value={data.dateofbirth || ''}
+            onChange={(e) => handleChange('dateofbirth', e.target.value)}
+            placeholder="Enter date of birth (MM/DD/YYYY)"
             style={{
               padding: '12px',
               border: '1px solid var(--border-color)',
@@ -115,7 +155,6 @@ export default function VoterDataForm({ data, onChange }) {
             <option value="">Select gender</option>
             <option value="Male">Male</option>
             <option value="Female">Female</option>
-            <option value="Other">Other</option>
           </select>
         </div>
         
@@ -147,7 +186,7 @@ export default function VoterDataForm({ data, onChange }) {
             type="text"
             value={data.unit || ''}
             onChange={(e) => handleChange('unit', e.target.value)}
-            placeholder="Enter unit"
+            placeholder="Enter unit/address"
             style={{
               padding: '12px',
               border: '1px solid var(--border-color)',
@@ -167,7 +206,7 @@ export default function VoterDataForm({ data, onChange }) {
             type="text"
             value={data.nin || ''}
             onChange={(e) => handleChange('nin', e.target.value)}
-            placeholder="Enter NIN"
+            placeholder="Enter NIN (11 digits)"
             style={{
               padding: '12px',
               border: '1px solid var(--border-color)',

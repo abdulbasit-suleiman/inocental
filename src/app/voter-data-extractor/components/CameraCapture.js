@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 
 export default function CameraCapture({ onCapture }) {
   const [stream, setStream] = useState(null);
@@ -28,12 +28,12 @@ export default function CameraCapture({ onCapture }) {
     }
   };
 
-  const stopCamera = () => {
+  const stopCamera = useCallback(() => {
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
       setStream(null);
     }
-  };
+  }, [stream]);
 
   const switchCamera = async () => {
     stopCamera();
@@ -84,7 +84,7 @@ export default function CameraCapture({ onCapture }) {
     return () => {
       stopCamera();
     };
-  }, []);
+  }, [stopCamera]);
 
   return (
     <div style={{ textAlign: 'center', padding: '20px', border: '2px dashed var(--border-color)', borderRadius: '10px', backgroundColor: 'var(--card-background)' }}>
@@ -162,7 +162,7 @@ export default function CameraCapture({ onCapture }) {
             <div>
               <h3 style={{ fontSize: '20px', marginBottom: '15px', color: 'var(--foreground)' }}>📷 Live Camera Preview</h3>
               <p style={{ marginBottom: '15px', color: 'var(--text-muted)' }}>
-                Position the voter form in the frame below and click "Capture Image" when ready
+                Position the voter form in the frame below and click &quot;Capture Image&quot; when ready
               </p>
               <div style={{ 
                 position: 'relative', 
@@ -327,7 +327,7 @@ export default function CameraCapture({ onCapture }) {
               id="file-upload" 
             />
             <label 
-              htmlFor="file-upload"
+              htmlFor={'file-upload'}
               style={{
                 display: 'block',
                 padding: '15px 30px',

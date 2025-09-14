@@ -24,6 +24,48 @@
   --text-muted: #aaaaaa;
 }
 
+/* Vibrant Blue Theme */
+[data-theme="blue"] {
+  --background: #e3f2fd;
+  --foreground: #0d47a1;
+  --card-background: #bbdefb;
+  --border-color: #90caf9;
+  --button-primary: #1976D2;
+  --button-secondary: #e0e0e0;
+  --button-success: #00C853;
+  --button-warning: #FFAB00;
+  --button-danger: #D50000;
+  --text-muted: #546e7a;
+}
+
+/* Vibrant Green Theme */
+[data-theme="green"] {
+  --background: #e8f5e9;
+  --foreground: #1b5e20;
+  --card-background: #c8e6c9;
+  --border-color: #a5d6a7;
+  --button-primary: #388E3C;
+  --button-secondary: #e0e0e0;
+  --button-success: #00C853;
+  --button-warning: #FFAB00;
+  --button-danger: #D50000;
+  --text-muted: #37474f;
+}
+
+/* Vibrant Purple Theme */
+[data-theme="purple"] {
+  --background: #f3e5f5;
+  --foreground: #4a148c;
+  --card-background: #e1bee7;
+  --border-color: #ce93d8;
+  --button-primary: #7b1fa2;
+  --button-secondary: #e0e0e0;
+  --button-success: #00C853;
+  --button-warning: #FFAB00;
+  --button-danger: #D50000;
+  --text-muted: #455a64;
+}
+
 html,
 body {
   max-width: 100vw;

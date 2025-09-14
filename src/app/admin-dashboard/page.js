@@ -9,6 +9,7 @@ export default function AdminDashboard() {
   const [sheets, setSheets] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [viewingSheet, setViewingSheet] = useState(null); // Track which sheet is being viewed
 
   const handleAccess = () => {
     // Simple admin access for demo - in production, use proper authentication
@@ -42,6 +43,32 @@ export default function AdminDashboard() {
       fetchSheets();
     }
   }, [isAdmin]);
+
+  // Function to view sheet data
+  const viewSheetData = async (sheet) => {
+    try {
+      // Import the parse function dynamically
+      const { parseExcelFromBase64 } = await import('../voter-data-extractor/utils/excelUtils');
+      
+      if (sheet.excelData) {
+        const parsedData = parseExcelFromBase64(sheet.excelData);
+        setViewingSheet({
+          ...sheet,
+          data: parsedData
+        });
+      } else {
+        alert('No Excel data available to view');
+      }
+    } catch (error) {
+      console.error('Error parsing Excel data:', error);
+      alert('Failed to parse Excel data: ' + error.message);
+    }
+  };
+
+  // Function to close data view
+  const closeDataView = () => {
+    setViewingSheet(null);
+  };
 
   if (!isAdmin) {
     return (
@@ -99,6 +126,152 @@ export default function AdminDashboard() {
             }}
           >
             Submit
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // If viewing sheet data
+  if (viewingSheet) {
+    return (
+      <div style={{ 
+        padding: '20px', 
+        maxWidth: '1200px', 
+        margin: '0 auto',
+        backgroundColor: 'var(--background)',
+        color: 'var(--foreground)',
+        minHeight: '100vh'
+      }}>
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          marginBottom: '30px',
+          flexWrap: 'wrap',
+          gap: '15px'
+        }}>
+          <h1>Viewing Sheet: {viewingSheet.name}</h1>
+          <button
+            onClick={closeDataView}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: 'var(--button-secondary)',
+              color: 'var(--foreground)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 'bold'
+            }}
+          >
+            ← Back to Dashboard
+          </button>
+        </div>
+
+        {viewingSheet.data && viewingSheet.data.length > 0 ? (
+          <div style={{
+            backgroundColor: 'var(--card-background)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '8px',
+            padding: '20px',
+            marginBottom: '20px'
+          }}>
+            <h2>Sheet Data ({viewingSheet.data.length - 1} records)</h2>
+            <div style={{ 
+              overflowX: 'auto', 
+              maxHeight: '70vh', 
+              overflowY: 'auto' 
+            }}>
+              <table style={{ 
+                width: '100%', 
+                borderCollapse: 'collapse',
+                marginTop: '15px'
+              }}>
+                <thead>
+                  <tr>
+                    {Object.keys(viewingSheet.data[0]).map((key) => (
+                      <th 
+                        key={key} 
+                        style={{ 
+                          borderBottom: '2px solid var(--border-color)',
+                          padding: '12px',
+                          textAlign: 'left',
+                          backgroundColor: 'var(--background)',
+                          position: 'sticky',
+                          top: 0
+                        }}
+                      >
+                        {key}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {viewingSheet.data.slice(1).map((row, rowIndex) => (
+                    <tr 
+                      key={rowIndex} 
+                      style={{ 
+                        backgroundColor: rowIndex % 2 === 0 ? 'var(--background)' : 'var(--card-background)'
+                      }}
+                    >
+                      {Object.values(row).map((cell, cellIndex) => (
+                        <td 
+                          key={cellIndex} 
+                          style={{ 
+                            borderBottom: '1px solid var(--border-color)',
+                            padding: '10px',
+                            wordBreak: 'break-word'
+                          }}
+                        >
+                          {cell || '-'}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (
+          <div style={{ 
+            textAlign: 'center', 
+            padding: '60px 20px',
+            backgroundColor: 'var(--card-background)',
+            borderRadius: '8px'
+          }}>
+            <h2>No Data Available</h2>
+            <p>This sheet contains no data records.</p>
+          </div>
+        )}
+
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          gap: '15px',
+          marginTop: '20px'
+        }}>
+          <button
+            onClick={() => {
+              // Import the download function dynamically
+              import('../voter-data-extractor/utils/excelUtils').then(({ downloadExcelFromBase64 }) => {
+                if (viewingSheet.excelData) {
+                  downloadExcelFromBase64(viewingSheet.excelData, `${viewingSheet.name}.xlsx`);
+                } else {
+                  alert('No Excel data available for download');
+                }
+              });
+            }}
+            style={{
+              padding: '12px 25px',
+              backgroundColor: 'var(--button-success)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 'bold'
+            }}
+          >
+            Download Excel Sheet
           </button>
         </div>
       </div>
@@ -208,7 +381,7 @@ export default function AdminDashboard() {
             >
               <h3 style={{ marginBottom: '10px', color: 'var(--foreground)' }}>{sheet.name}</h3>
               <p style={{ marginBottom: '8px', color: 'var(--text-muted)' }}>
-                <strong>User ID:</strong> {sheet.userId}
+                <strong>User:</strong> {sheet.userName || sheet.userId || 'Unknown User'}
               </p>
               <p style={{ marginBottom: '8px', color: 'var(--text-muted)' }}>
                 <strong>Records:</strong> {sheet.recordCount || 0}
@@ -219,24 +392,50 @@ export default function AdminDashboard() {
               <p style={{ marginBottom: '15px', color: 'var(--text-muted)' }}>
                 <strong>Updated:</strong> {sheet.updatedAt ? new Date(sheet.updatedAt).toLocaleString() : 'N/A'}
               </p>
-              <a
-                href={sheet.downloadURL}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  display: 'inline-block',
-                  padding: '10px 15px',
-                  backgroundColor: 'var(--button-success)',
-                  color: 'white',
-                  textDecoration: 'none',
-                  borderRadius: '4px',
-                  fontWeight: 'bold',
-                  textAlign: 'center',
-                  width: '100%'
-                }}
-              >
-                Download Excel Sheet
-              </a>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  onClick={() => viewSheetData(sheet)}
+                  style={{
+                    flex: 1,
+                    padding: '10px 15px',
+                    backgroundColor: 'var(--button-primary)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    textAlign: 'center'
+                  }}
+                >
+                  View Data
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    // Import the download function dynamically
+                    import('../voter-data-extractor/utils/excelUtils').then(({ downloadExcelFromBase64 }) => {
+                      if (sheet.excelData) {
+                        downloadExcelFromBase64(sheet.excelData, `${sheet.name}.xlsx`);
+                      } else {
+                        alert('No Excel data available for download');
+                      }
+                    });
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '10px 15px',
+                    backgroundColor: 'var(--button-success)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    textAlign: 'center'
+                  }}
+                >
+                  Download
+                </button>
+              </div>
             </div>
           ))}
         </div>

@@ -4,9 +4,9 @@ import Image from "next/image";
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { createExcelTemplate, downloadExcelFile, saveExcelToFirebase, fetchExcelFromFirebase } from './utils/excelUtils';
+import { createExcelTemplate, downloadExcelFile, downloadExcelFromBase64, saveExcelToFirebase, fetchExcelFromFirebase } from './utils/excelUtils';
 import { auth } from '../../firebase';
-import { signInAnonymously } from 'firebase/auth';
+import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 
 // Dynamically import components that use client-side APIs
 const CameraCapture = dynamic(() => import('./components/CameraCapture'), { ssr: false });
@@ -23,9 +23,10 @@ function VoterDataExtractorContent() {
   const [excelData, setExcelData] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [sheetName, setSheetName] = useState('');
-  const [userId, setUserId] = useState('user-' + Date.now()); // Simple user ID for demo
+  const [userId, setUserId] = useState(null); // Will be set after auth
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // Handle URL parameter for sheet name and authenticate user
   useEffect(() => {
@@ -33,19 +34,33 @@ function VoterDataExtractorContent() {
       setSheetName(urlSheetName);
     }
     
-    // Sign in anonymously
-    signInAnonymously(auth)
-      .then((userCredential) => {
-        // Signed in..
-        const user = userCredential.user;
+    // Handle authentication state changes
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
         setUserId(user.uid);
-        console.log('Anonymous user signed in:', user.uid);
-      })
-      .catch((error) => {
-        console.error('Error signing in anonymously:', error);
-        // Fallback to simple user ID
-        setError('Authentication failed. Some features may be limited.');
-      });
+        setIsAuthenticated(true);
+        console.log('User authenticated with ID:', user.uid);
+      } else {
+        // Sign in anonymously if not authenticated
+        signInAnonymously(auth)
+          .then((userCredential) => {
+            const user = userCredential.user;
+            setUserId(user.uid);
+            setIsAuthenticated(true);
+            console.log('Anonymous user signed in with ID:', user.uid);
+          })
+          .catch((error) => {
+            console.error('Error signing in anonymously:', error);
+            // Generate a temporary user ID for demo purposes
+            const tempUserId = 'temp-' + Date.now();
+            setUserId(tempUserId);
+            setIsAuthenticated(true);
+            setError('Authentication failed. Using temporary ID for demo.');
+          });
+      }
+    });
+    
+    return () => unsubscribe();
   }, [urlSheetName]);
 
   // Create initial Excel template
@@ -56,35 +71,58 @@ function VoterDataExtractorContent() {
       return;
     }
     
+    if (!isAuthenticated || !userId) {
+      setError('Authentication required. Please wait and try again.');
+      return;
+    }
+    
     setError('');
     setSuccessMessage('');
     
-    // Check if sheet already exists
-    if (sheetName) {
-      try {
-        const existingSheet = await fetchExcelFromFirebase(sheetName.trim(), userId);
-        if (existingSheet) {
-          // Load existing sheet data
-          setSuccessMessage(`Loading existing sheet: ${sheetName}`);
-          // In a real implementation, you would fetch the actual Excel data
-          const template = createExcelTemplate();
-          setExcelData(template);
+    const trimmedSheetName = sheetName.trim();
+    
+    try {
+      // Check if sheet already exists
+      setSuccessMessage('Checking for existing sheet...');
+      const existingSheet = await fetchExcelFromFirebase(trimmedSheetName, userId);
+      if (existingSheet) {
+        // Load existing sheet data
+        setSuccessMessage(`Loading existing sheet: ${trimmedSheetName}`);
+        
+        // Import the parse function dynamically
+        const { parseExcelFromBase64 } = await import('./utils/excelUtils');
+        
+        // Parse the Excel data from base64
+        if (existingSheet.excelData) {
+          try {
+            const parsedData = parseExcelFromBase64(existingSheet.excelData);
+            setExcelData(parsedData);
+            setSuccessMessage(`Loaded existing sheet: ${trimmedSheetName} with ${parsedData.length - 1} entries`);
+          } catch (parseError) {
+            console.error('Error parsing Excel data:', parseError);
+            // Fallback to template
+            const template = createExcelTemplate();
+            setExcelData(template);
+            setSuccessMessage(`Loaded template for: ${trimmedSheetName} (could not parse existing data)`);
+          }
         } else {
-          // Create new sheet
+          // Fallback to template
           const template = createExcelTemplate();
           setExcelData(template);
-          setSuccessMessage('Created new Excel template');
+          setSuccessMessage(`Loaded template for: ${trimmedSheetName}`);
         }
-      } catch (error) {
-        console.error('Error checking sheet:', error);
-        // If there's an error fetching, still create a new template
+      } else {
+        // Create new sheet
         const template = createExcelTemplate();
         setExcelData(template);
-        setError('Could not check for existing sheet. Created new template.');
+        setSuccessMessage(`Created new Excel template for: ${trimmedSheetName}`);
       }
-    } else {
+    } catch (error) {
+      console.error('Error checking/creating sheet:', error);
+      // If there's an error fetching, still create a new template
       const template = createExcelTemplate();
       setExcelData(template);
+      setSuccessMessage('Created new Excel template (could not check for existing sheet)');
     }
     
     setStep('capture');
@@ -101,23 +139,28 @@ function VoterDataExtractorContent() {
       return;
     }
     
+    if (!isAuthenticated || !userId) {
+      setError('Authentication required. Please wait and try again.');
+      return;
+    }
+    
     setIsProcessing(true);
     setError('');
     setSuccessMessage('');
     
     try {
       // Import the OCR utils dynamically to avoid server-side issues
-      const { processImageWithMultipleOCR, preprocessImageForOCR } = await import('./utils/ocrUtils');
+      const { processImageWithOCR, preprocessImageForOCR } = await import('./utils/ocrUtils');
       
       setSuccessMessage('Preprocessing image for better OCR results...');
       
       // Preprocess image for better OCR results
       const processedImage = await preprocessImageForOCR(capturedImage);
       
-      setSuccessMessage('Extracting data from image (this may take a few seconds)...');
+      setSuccessMessage('Extracting data from image (this should take just a few seconds)...');
       
-      // Process the image with optimized OCR method
-      const ocrData = await processImageWithMultipleOCR(processedImage);
+      // Process the image with optimized OCR method (faster single pass)
+      const ocrData = await processImageWithOCR(processedImage);
       
       setVoterData(ocrData);
       setSuccessMessage('Data extracted successfully! Please review and edit as needed.');
@@ -139,8 +182,14 @@ function VoterDataExtractorContent() {
   const handleAddToExcel = () => {
     // Validate required fields
     if (!voterData.surname || !voterData.firstname || !voterData.phonenumber || 
-        !voterData.gender || !voterData.ward || !voterData.unit || !voterData.nin) {
+        !voterData.applicationnumber || !voterData.dateofbirth || !voterData.gender || 
+        !voterData.ward || !voterData.unit || !voterData.nin) {
       setError('Please fill in all required fields');
+      return;
+    }
+    
+    if (!isAuthenticated || !userId) {
+      setError('Authentication required. Please wait and try again.');
       return;
     }
     
@@ -180,6 +229,11 @@ function VoterDataExtractorContent() {
       return;
     }
     
+    if (!isAuthenticated || !userId) {
+      setError('Authentication required. Please wait and try again.');
+      return;
+    }
+    
     setError('');
     setSuccessMessage('');
     
@@ -208,6 +262,18 @@ function VoterDataExtractorContent() {
       return () => clearTimeout(timer);
     }
   }, [error, successMessage]);
+
+  // Show loading state while authenticating
+  if (!isAuthenticated) {
+    return (
+      <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'Arial, sans-serif' }}>
+        <h1 style={{ textAlign: 'center', color: 'var(--foreground)', marginBottom: '30px' }}>Voter Data Extractor</h1>
+        <div style={{ textAlign: 'center', padding: '40px', backgroundColor: 'var(--card-background)', borderRadius: '8px' }}>
+          <p>Authenticating user...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'Arial, sans-serif' }}>
@@ -247,6 +313,8 @@ function VoterDataExtractorContent() {
             <li>Middle Name</li>
             <li>First Name</li>
             <li>Phone Number</li>
+            <li>Application Number</li>
+            <li>Date of Birth</li>
             <li>Gender</li>
             <li>Ward</li>
             <li>Unit</li>
@@ -276,18 +344,18 @@ function VoterDataExtractorContent() {
           
           <button 
             onClick={handleCreateTemplate}
-            disabled={!sheetName || sheetName.trim() === ''}
+            disabled={!sheetName || sheetName.trim() === '' || !isAuthenticated}
             style={{
               padding: '15px 30px',
               fontSize: '18px',
-              backgroundColor: (sheetName && sheetName.trim() !== '') ? 'var(--button-success)' : 'var(--button-secondary)',
+              backgroundColor: (sheetName && sheetName.trim() !== '' && isAuthenticated) ? 'var(--button-success)' : 'var(--button-secondary)',
               color: 'white',
               border: 'none',
               borderRadius: '4px',
-              cursor: (sheetName && sheetName.trim() !== '') ? 'pointer' : 'not-allowed',
+              cursor: (sheetName && sheetName.trim() !== '' && isAuthenticated) ? 'pointer' : 'not-allowed',
               fontWeight: 'bold',
               marginTop: '20px',
-              opacity: (sheetName && sheetName.trim() !== '') ? 1 : 0.6
+              opacity: (sheetName && sheetName.trim() !== '' && isAuthenticated) ? 1 : 0.6
             }}
           >
             Create Excel Template
@@ -302,31 +370,33 @@ function VoterDataExtractorContent() {
             <div>
               <button 
                 onClick={handleDownloadExcel}
-                disabled={excelData.length <= 1}
+                disabled={excelData.length <= 1 || !isAuthenticated}
                 style={{
                   padding: '10px 20px',
-                  backgroundColor: excelData.length <= 1 ? 'var(--button-secondary)' : 'var(--button-primary)',
+                  backgroundColor: (excelData.length > 1 && isAuthenticated) ? 'var(--button-primary)' : 'var(--button-secondary)',
                   color: 'white',
                   border: 'none',
                   borderRadius: '4px',
-                  cursor: excelData.length <= 1 ? 'not-allowed' : 'pointer',
+                  cursor: (excelData.length > 1 && isAuthenticated) ? 'pointer' : 'not-allowed',
                   fontWeight: 'bold',
                   marginRight: '10px',
-                  opacity: excelData.length <= 1 ? 0.6 : 1
+                  opacity: (excelData.length > 1 && isAuthenticated) ? 1 : 0.6
                 }}
               >
                 Download Sheet ({excelData.length - 1} entries)
               </button>
               <button 
                 onClick={handleSaveToFirebase}
+                disabled={!isAuthenticated}
                 style={{
                   padding: '10px 20px',
-                  backgroundColor: 'var(--button-success)',
+                  backgroundColor: isAuthenticated ? 'var(--button-success)' : 'var(--button-secondary)',
                   color: 'white',
                   border: 'none',
                   borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold'
+                  cursor: isAuthenticated ? 'pointer' : 'not-allowed',
+                  fontWeight: 'bold',
+                  opacity: isAuthenticated ? 1 : 0.6
                 }}
               >
                 Save to Firebase
@@ -370,19 +440,19 @@ function VoterDataExtractorContent() {
               </button>
               <button 
                 onClick={handleProcessImage} 
-                disabled={isProcessing}
+                disabled={isProcessing || !isAuthenticated}
                 style={{
                   padding: '10px 15px',
                   border: 'none',
                   borderRadius: '4px',
                   cursor: 'pointer',
                   fontWeight: 'bold',
-                  backgroundColor: 'var(--button-success)',
+                  backgroundColor: isAuthenticated ? 'var(--button-success)' : 'var(--button-secondary)',
                   color: 'white',
                   marginTop: '10px',
                   marginLeft: '10px',
-                  opacity: isProcessing ? 0.6 : 1,
-                  cursor: isProcessing ? 'not-allowed' : 'pointer'
+                  opacity: (isProcessing || !isAuthenticated) ? 0.6 : 1,
+                  cursor: (isProcessing || !isAuthenticated) ? 'not-allowed' : 'pointer'
                 }}
               >
                 {isProcessing ? 'Processing...' : 'Extract Data'}
@@ -394,18 +464,26 @@ function VoterDataExtractorContent() {
               <div style={{ marginTop: '20px' }}>
                 <button 
                   onClick={handleAddToExcel}
-                  disabled={!voterData.surname || !voterData.firstname || !voterData.phonenumber || !voterData.gender || !voterData.ward || !voterData.unit || !voterData.nin}
+                  disabled={!voterData.surname || !voterData.firstname || !voterData.phonenumber || 
+                           !voterData.applicationnumber || !voterData.dateofbirth || !voterData.gender || 
+                           !voterData.ward || !voterData.unit || !voterData.nin || !isAuthenticated}
                   style={{
                     padding: '12px 25px',
                     border: 'none',
                     borderRadius: '4px',
                     cursor: 'pointer',
                     fontWeight: 'bold',
-                    backgroundColor: (!voterData.surname || !voterData.firstname || !voterData.phonenumber || !voterData.gender || !voterData.ward || !voterData.unit || !voterData.nin) ? 'var(--button-secondary)' : 'var(--button-primary)',
+                    backgroundColor: (!voterData.surname || !voterData.firstname || !voterData.phonenumber || 
+                                   !voterData.applicationnumber || !voterData.dateofbirth || !voterData.gender || 
+                                   !voterData.ward || !voterData.unit || !voterData.nin || !isAuthenticated) ? 'var(--button-secondary)' : 'var(--button-primary)',
                     color: 'white',
                     fontSize: '16px',
-                    opacity: (!voterData.surname || !voterData.firstname || !voterData.phonenumber || !voterData.gender || !voterData.ward || !voterData.unit || !voterData.nin) ? 0.6 : 1,
-                    cursor: (!voterData.surname || !voterData.firstname || !voterData.phonenumber || !voterData.gender || !voterData.ward || !voterData.unit || !voterData.nin) ? 'not-allowed' : 'pointer'
+                    opacity: (!voterData.surname || !voterData.firstname || !voterData.phonenumber || 
+                             !voterData.applicationnumber || !voterData.dateofbirth || !voterData.gender || 
+                             !voterData.ward || !voterData.unit || !voterData.nin || !isAuthenticated) ? 0.6 : 1,
+                    cursor: (!voterData.surname || !voterData.firstname || !voterData.phonenumber || 
+                            !voterData.applicationnumber || !voterData.dateofbirth || !voterData.gender || 
+                            !voterData.ward || !voterData.unit || !voterData.nin || !isAuthenticated) ? 'not-allowed' : 'pointer'
                   }}
                 >
                   Add to Excel Sheet
